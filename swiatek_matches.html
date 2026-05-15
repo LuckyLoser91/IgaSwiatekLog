@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iga Świątek · Match History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #f4f1ed;
+    --bg2:     #eceae4;
+    --surface: #ffffff;
+    --border:  #dedad2;
+    --border2: #ccc7bc;
+    --text:    #1c1a17;
+    --sub:     #6e6a62;
+    --muted:   #aea9a0;
+    --accent:  #2b5c3c;
+    --accent2: #bf5c30;
+    --win:     #2b5c3c;
+    --loss:    #b03030;
+    --clay:    #bf5c30;
+    --hard:    #2d5e96;
+    --grass:   #3a7a48;
+    --indoor:  #6644aa;
+    --shadow:  0 1px 4px rgba(0,0,0,.07), 0 6px 16px rgba(0,0,0,.04);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    padding: 38px 52px 28px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::after {
+    content: 'ŚWIĄTEK';
+    position: absolute;
+    right: -8px; bottom: -20px;
+    font-family: 'Playfair Display', serif;
+    font-size: 120px;
+    font-weight: 700;
+    color: var(--bg2);
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+    letter-spacing: -2px;
+  }
+  .header-left h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+  .header-left h1 em { font-style: italic; color: var(--accent); }
+  .header-left p {
+    margin-top: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--sub);
+  }
+  .header-stats { display: flex; gap: 36px; z-index: 1; flex-shrink: 0; }
+  .stat-box { text-align: right; }
+  .stat-box .num {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-box .lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 52px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .filter-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .filter-group { display: flex; gap: 3px; }
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--sub);
+    padding: 5px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.13s;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .filter-btn:hover  { border-color: var(--accent); color: var(--accent); background: #eef5f0; }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .filter-select {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--sub);
+    padding: 5px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    outline: none;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+  .filter-select:focus { border-color: var(--accent); }
+
+  .sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+  .toolbar { flex-direction: column; gap: 0; padding: 0; }
+  .toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 52px;
+    flex-wrap: wrap;
+  }
+  .toolbar-row + .toolbar-row { border-top: 1px solid var(--border); }
+  .filter-input {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 5px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    outline: none;
+    border-radius: 2px;
+    width: 160px;
+    letter-spacing: 0.3px;
+  }
+  .filter-input::placeholder { color: var(--muted); }
+  .filter-input:focus { border-color: var(--accent); }
+  .toolbar-right {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ── Table ── */
+  .table-wrap { padding: 24px 52px 32px; overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    min-width: 880px;
+  }
+  thead { background: var(--bg2); border-bottom: 2px solid var(--border2); }
+  th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--sub);
+    padding: 11px 14px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.12s;
+    border-right: 1px solid var(--border);
+  }
+  th:last-child { border-right: none; }
+  th:hover { color: var(--accent); }
+  th.sort-asc::after  { content: ' ↑'; color: var(--accent); }
+  th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    animation: rowIn 0.22s ease forwards;
+    opacity: 0;
+  }
+  @keyframes rowIn {
+    from { opacity:0; transform:translateY(3px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #faf8f4; }
+
+  td {
+    padding: 11px 14px;
+    font-size: 13px;
+    vertical-align: middle;
+    border-right: 1px solid var(--border);
+  }
+  td:last-child { border-right: none; }
+
+  /* date */
+  .td-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--sub);
+    white-space: nowrap;
+    line-height: 1.7;
+  }
+  .td-date .time { color: var(--muted); font-size: 10px; }
+
+  /* tournament */
+  .t-name { font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .t-year { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* surface */
+  .surface-pip { display: inline-flex; align-items: center; gap: 5px; }
+  .surface-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .surface-txt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  /* level */
+  .pts { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: var(--accent2); letter-spacing: 0.3px; white-space: nowrap; }
+  .pts.none { color: var(--muted); font-size: 11px; }
+
+  /* round */
+  .round-tag {
+    display: inline-block;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 3px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+
+  /* players */
+  .td-players { min-width: 200px; }
+  .player-row { display: flex; align-items: center; gap: 5px; padding: 2px 0; }
+  .p-name { font-size: 13px; font-weight: 500; flex: 1; white-space: nowrap; }
+  .p-name.win-p  { color: var(--win); }
+  .p-name.lose-p { color: var(--sub); }
+  .p-rank {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 30px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .seed-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    padding: 1px 4px;
+    border-radius: 2px;
+    color: var(--sub);
+    flex-shrink: 0;
+  }
+  .vs-sep {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    padding: 0 2px;
+  }
+
+  /* score */
+  .td-score { font-family: 'IBM Plex Mono', monospace; white-space: nowrap; }
+  .score-row { display: flex; gap: 5px; align-items: baseline; padding: 1px 0; }
+  .set-s { font-size: 14px; font-weight: 500; min-width: 16px; text-align: center; }
+  .set-s.w { color: var(--text); }
+  .set-s.l { color: var(--muted); }
+
+  /* duration */
+  .td-dur { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--sub); white-space: nowrap; }
+
+  /* result */
+  .result-pill {
+    display: inline-block;
+    padding: 3px 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    border-radius: 2px;
+  }
+  .result-pill.w { background: #eaf4ee; color: var(--win);  border: 1px solid #b8ddc4; }
+  .result-pill.l { background: #faeaea; color: var(--loss); border: 1px solid #e8b8b8; }
+
+  /* session */
+  .session-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .session-pill.day   { background: #fef9ec; color: #a07020; border: 1px solid #e8d99a; }
+  .session-pill.night { background: #eeeaf8; color: #5040a0; border: 1px solid #c8b8e8; }
+
+  .stats-link {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.13s;
+    white-space: nowrap;
+  }
+  .stats-link:hover { border-color: var(--accent); }
+
+  /* ── Pagination ── */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 24px 52px 48px;
+    flex-wrap: wrap;
+  }
+  .page-btn {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--sub);
+    width: 34px; height: 34px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.13s;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 2px;
+  }
+  .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: #eef5f0; }
+  .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .page-btn.ellipsis { border: none; background: transparent; cursor: default; }
+  .page-btn.ellipsis:hover { color: var(--sub); background: transparent; border: none; }
+
+  /* ── State msgs ── */
+  .state-msg {
+    text-align: center;
+    padding: 72px 48px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.2s steps(4,end) infinite;
+  }
+  @keyframes dots {
+    0%  { content:''; }   25% { content:'.'; }
+    50% { content:'..'; } 75% { content:'...'; }
+  }
+
+  @media (max-width: 768px) {
+    header { padding: 28px 20px 20px; }
+    header::after { font-size: 72px; }
+    .header-left h1 { font-size: 32px; }
+    .header-stats { gap: 20px; }
+    .toolbar, .table-wrap, .pagination { padding-left: 20px; padding-right: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Iga <em>Świątek</em></h1>
+    <p>Match History · All Matches · Local Time</p>
+  </div>
+  <div class="header-stats">
+    <div class="stat-box"><div class="num" id="statTotal">—</div><div class="lbl">Matches</div></div>
+    <div class="stat-box"><div class="num" id="statWins">—</div><div class="lbl">Wins</div></div>
+    <div class="stat-box"><div class="num" id="statLoss" style="color:var(--loss)">—</div><div class="lbl">Losses</div></div>
+    <div class="stat-box"><div class="num" id="statWinRate">—</div><div class="lbl">Win %</div></div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="toolbar-row">
+    <span class="filter-label">Result</span>
+    <div class="filter-group" id="fResult">
+      <button class="filter-btn active" data-val="all">All</button>
+      <button class="filter-btn" data-val="win">Win</button>
+      <button class="filter-btn" data-val="loss">Loss</button>
+    </div>
+    <div class="sep"></div>
+    <span class="filter-label">Surface</span>
+    <div class="filter-group" id="fSurface">
+      <button class="filter-btn active" data-val="all">All</button>
+      <button class="filter-btn" data-val="clay">Clay</button>
+      <button class="filter-btn" data-val="hard">Hard</button>
+      <button class="filter-btn" data-val="grass">Grass</button>
+    </div>
+    <div class="sep"></div>
+    <span class="filter-label">Venue</span>
+    <div class="filter-group" id="fVenueGroup">
+      <button class="filter-btn active" data-val="all">All</button>
+      <button class="filter-btn" data-val="Outdoor">Outdoor</button>
+      <button class="filter-btn" data-val="Indoor">Indoor</button>
+    </div>
+    <div class="sep"></div>
+    <span class="filter-label">Session</span>
+    <div class="filter-group" id="fSessionGroup">
+      <button class="filter-btn active" data-val="all">All</button>
+      <button class="filter-btn" data-val="Day">Day</button>
+      <button class="filter-btn" data-val="Night">Night</button>
+    </div>
+    <div class="sep"></div>
+    <span class="filter-label">Opponent</span>
+    <input class="filter-input" id="fOpponent" type="text" placeholder="e.g. Sabalenka" autocomplete="off">
+  </div>
+  <div class="toolbar-row">
+    <span class="filter-label">Season</span>
+    <select class="filter-select" id="fSeason">
+      <option value="all">All Seasons</option>
+    </select>
+    <div class="sep"></div>
+    <span class="filter-label">Level</span>
+    <select class="filter-select" id="fLevel">
+      <option value="all">All Levels</option>
+      <option value="Grand Slam">Grand Slam</option>
+      <option value="WTA 1000">WTA 1000</option>
+      <option value="WTA 500">WTA 500</option>
+      <option value="WTA 250">WTA 250</option>
+      <option value="others">Others</option>
+    </select>
+    <div class="sep"></div>
+    <span class="filter-label">Per page</span>
+    <select class="filter-select" id="perPage">
+      <option value="15">15</option>
+      <option value="30" selected>30</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+    <div class="sep"></div>
+    <span class="toolbar-right" id="countLabel"></span>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th data-col="idx" style="cursor:default">#</th>
+        <th data-col="id">Event ID</th>
+        <th data-col="tournamentId">Tour. ID</th>
+        <th data-col="endTime">End Time</th>
+        <th data-col="tournament">Tournament</th>
+        <th data-col="level">Level</th>
+        <th data-col="surface">Surface</th>
+        <th data-col="round">Round</th>
+        <th data-col="players">Players</th>
+        <th data-col="score">Score</th>
+        <th data-col="duration">Time</th>
+        <th data-col="session">Session</th>
+        <th data-col="result">Result</th>
+        <th style="cursor:default">Stats</th>
+      </tr>
+    </thead>
+    <tbody id="matchBody">
+      <tr><td colspan="15" class="state-msg loading-dots">Loading matches</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<script>
+const DATA_PATH = './data/iga_swiatek_previous_matches/combined_matches_wta_only.json';
+const TZ_PATH   = './data/tournament_timezones.json';
+const SWIATEK_ID = 228272;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function surfaceKey(g) {
+  if (!g) return 'other';
+  const s = g.toLowerCase();
+  if (s.includes('clay'))  return 'clay';
+  if (s.includes('grass')) return 'grass';
+  return 'hard';
+}
+function surfaceColor(g) {
+  const k = surfaceKey(g);
+  return k === 'clay' ? 'var(--clay)' : k === 'grass' ? 'var(--grass)' : 'var(--hard)';
+}
+function surfaceShort(g) {
+  if (!g) return '—';
+  const s = g.toLowerCase();
+  if (s.includes('clay'))  return s.includes('indoor') ? 'Clay (i)' : 'Clay';
+  if (s.includes('grass')) return 'Grass';
+  return s.includes('indoor') ? 'Hard (i)' : 'Hard';
+}
+
+function fmtDate(ts, timezone) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  try {
+    const tz = timezone || 'UTC';
+    const datePart = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' }).format(d);
+    const timePart = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour:'2-digit', minute:'2-digit', hour12:false }).format(d);
+    const offset   = getUTCOffsetLabel(d, tz);
+    return `${datePart}<br><span class="time">${timePart} ${offset}</span>`;
+  } catch(e) {
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}<br><span class="time">${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC</span>`;
+  }
+}
+
+function getUTCOffsetLabel(date, timezone) {
+  try {
+    const s = new Intl.DateTimeFormat('en', { timeZone: timezone, timeZoneName: 'shortOffset' }).format(date);
+    const m = s.match(/GMT([+-]\d+(?::\d+)?)/);
+    return m ? 'UTC' + m[1] : 'UTC';
+  } catch(e) { return 'UTC'; }
+}
+
+function fmtDuration(timeObj) {
+  if (!timeObj) return '—';
+  let total = 0;
+  ['period1','period2','period3','period4','period5'].forEach(k => { if (timeObj[k]) total += timeObj[k]; });
+  if (!total) return '—';
+  const mins = Math.round(total / 60);
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h > 0 ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}m`;
+}
+
+function fmtScore(homeScore, awayScore, winnerCode, isHomeSwiatek) {
+  if (!homeScore || !awayScore) return '—';
+  const sets = [];
+  for (const p of ['period1','period2','period3','period4','period5']) {
+    if (homeScore[p] == null || awayScore[p] == null) break;
+    sets.push({ h: homeScore[p], a: awayScore[p] });
+  }
+  if (!sets.length) return '—';
+
+  let sRow = '', oRow = '';
+  sets.forEach(({ h, a }) => {
+    const sScore = isHomeSwiatek ? h : a;
+    const oScore = isHomeSwiatek ? a : h;
+    const sWon = sScore > oScore;
+    sRow += `<span class="set-s ${sWon?'w':'l'}">${sScore}</span>`;
+    oRow += `<span class="set-s ${!sWon?'w':'l'}">${oScore}</span>`;
+  });
+  return `<div class="score-row">${sRow}</div><div class="score-row">${oRow}</div>`;
+}
+
+// ── Data loading ─────────────────────────────────────────────────────────────
+let allMatches = [];
+
+async function loadData() {
+  const [matchRes, tzRes] = await Promise.all([fetch(DATA_PATH), fetch(TZ_PATH)]);
+  if (!matchRes.ok) throw new Error(`HTTP ${matchRes.status}`);
+  const raw    = await matchRes.json();
+  const tzData = tzRes.ok ? (await tzRes.json()).tournaments : {};
+  const events = Array.isArray(raw) ? raw : (raw.events || []);
+
+  return events
+    .filter(ev => ev.homeTeam && ev.awayTeam)
+    .map(ev => {
+      const isHomeSwiatek = ev.homeTeam?.id === SWIATEK_ID;
+      const win      = isHomeSwiatek ? ev.winnerCode === 1 : ev.winnerCode === 2;
+      const swiatek  = isHomeSwiatek ? ev.homeTeam : ev.awayTeam;
+      const opponent = isHomeSwiatek ? ev.awayTeam : ev.homeTeam;
+
+      const ut           = ev.tournament?.uniqueTournament || {};
+      const tournamentId = String(ut.id || ev.tournament?.id || '');
+      const year         = ev.season?.year || '—';
+      const pts          = ut.tennisPoints ?? null;
+
+      // Level label
+      let level;
+      if (pts == null)        { level = 'others'; }
+      else if (pts === 2000)  { level = 'Grand Slam'; }
+      else                    { level = `WTA ${pts}`; }
+
+      // Timezone lookup (WTA Finals special-cased by year)
+      let timezone = 'UTC';
+      if (tournamentId && tzData[tournamentId]) {
+        const entry = tzData[tournamentId];
+        if (entry.timezone_by_year) {
+          timezone = (entry.timezone_by_year[year] || {}).timezone || 'UTC';
+        } else {
+          timezone = entry.timezone || 'UTC';
+        }
+      }
+
+      // Session: Night if local end hour >= 19:00, else Day
+      const endTs = ev.changes?.changeTimestamp || ev.startTimestamp;
+      let session = '—';
+      if (endTs) {
+        const localHour = parseInt(
+          new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: 'numeric', hour12: false }).format(new Date(endTs * 1000))
+        , 10);
+        session = (localHour >= 19 || localHour < 6) ? 'Night' : 'Day';
+      }
+
+      return {
+        id:           ev.id,
+        date:         ev.changes?.changeTimestamp || ev.startTimestamp,
+        year,
+        tournament:   ut.name || ev.tournament?.name || '—',
+        tournamentId,
+        surface:      ev.groundType || ut.groundType || '',
+        points:       pts,
+        level,
+        round:        ev.roundInfo?.name || null,
+        swiatekName:  swiatek?.name  || 'Iga Świątek',
+        swiatekSeed:  isHomeSwiatek ? ev.homeTeamSeed : ev.awayTeamSeed,
+        opponentName: opponent?.name || '—',
+        opponentSeed: isHomeSwiatek ? ev.awayTeamSeed : ev.homeTeamSeed,
+        isHomeSwiatek,
+        winnerCode:   ev.winnerCode,
+        homeScore:    ev.homeScore,
+        awayScore:    ev.awayScore,
+        time:         ev.time,
+        timezone,
+        session,
+        venue:    (ev.groundType || '').toLowerCase().includes('indoor') ? 'Indoor' : 'Outdoor',
+        slug:     ev.slug || '',
+        customId: ev.customId || '',
+        win,
+      };
+    })
+    .sort((a, b) => b.date - a.date);
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let filtered = [];
+let currentPage = 1;
+let perPage  = 30;
+let fResult  = 'all';
+let fSurface = 'all';
+let fSeason  = 'all';
+let fLevel   = 'all';
+let fSession  = 'all';
+let fOpponent = '';
+let fVenue    = 'all';
+let sortCol  = null;
+let sortDir  = 1;
+
+function applyFilters() {
+  filtered = allMatches.filter(m => {
+    if (fResult  === 'win'  && !m.win) return false;
+    if (fResult  === 'loss' &&  m.win) return false;
+    if (fSurface !== 'all'  && surfaceKey(m.surface) !== fSurface) return false;
+    if (fSeason  !== 'all'  && m.year !== fSeason) return false;
+    if (fLevel   !== 'all'  && m.level !== fLevel) return false;
+    if (fSession  !== 'all'  && m.session !== fSession) return false;
+    if (fOpponent && !m.opponentName.toLowerCase().includes(fOpponent.toLowerCase())) return false;
+    if (fVenue !== 'all' && m.venue !== fVenue) return false;
+    return true;
+  });
+
+  if (sortCol) {
+    filtered.sort((a, b) => {
+      let va = a[sortCol], vb = b[sortCol];
+      if (va == null) va = typeof vb === 'number' ? -Infinity : '';
+      if (vb == null) vb = typeof va === 'number' ? -Infinity : '';
+      if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+      return (va - vb) * sortDir;
+    });
+  }
+
+  currentPage = 1;
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  updateStats();
+  renderTable();
+  renderPagination();
+}
+
+function updateStats() {
+  const total = filtered.length;
+  const wins  = filtered.filter(m => m.win).length;
+  const losses = total - wins;
+  document.getElementById('statTotal').textContent   = total;
+  document.getElementById('statWins').textContent    = wins;
+  document.getElementById('statLoss').textContent    = losses;
+  document.getElementById('statWinRate').textContent = total ? (wins/total*100).toFixed(1)+'%' : '—';
+  const allTotal = allMatches.length;
+  document.getElementById('countLabel').textContent  =
+    total === allTotal ? `${total} matches` : `${total} / ${allTotal} matches`;
+}
+
+function renderTable() {
+  const start = (currentPage - 1) * perPage;
+  const slice = filtered.slice(start, start + perPage);
+  const tbody = document.getElementById('matchBody');
+
+  if (!slice.length) {
+    tbody.innerHTML = `<tr><td colspan="15" class="state-msg">No matches found</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = slice.map((m, i) => {
+    const sc  = surfaceColor(m.surface);
+    const ssh = surfaceShort(m.surface);
+
+    // Level label display
+    const levelDisplay = m.level === 'others'
+      ? `<span class="pts none">Others</span>`
+      : `<span class="pts">${m.level}</span>`;
+
+    const roundHtml = m.round
+      ? `<span class="round-tag">${m.round}</span>`
+      : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
+
+    // Swiatek always row 1, opponent row 2 (no rank)
+    const sSeed = m.swiatekSeed  ? `<span class="seed-tag">${m.swiatekSeed}</span>`  : '';
+    const oSeed = m.opponentSeed ? `<span class="seed-tag">${m.opponentSeed}</span>` : '';
+
+    const playersHtml = `
+      <div class="player-row">${sSeed}<span class="p-name ${m.win?'win-p':'lose-p'}">${m.swiatekName}</span></div>
+      <div class="vs-sep">vs</div>
+      <div class="player-row">${oSeed}<span class="p-name ${!m.win?'win-p':'lose-p'}">${m.opponentName}</span></div>`;
+
+    const scoreHtml = fmtScore(m.homeScore, m.awayScore, m.winnerCode, m.isHomeSwiatek);
+    const dur       = fmtDuration(m.time);
+    const sofaUrl = (m.slug && m.customId)
+      ? 'https://www.sofascore.com/tennis/match/' + m.slug + '/' + m.customId + '#id:' + m.id + ',tab:statistics'
+      : null;
+    const statsHtml = sofaUrl
+      ? '<a href="' + sofaUrl + '" target="_blank" rel="noopener" class="stats-link">&#8599; Stats</a>'
+      : '<span style="color:var(--muted);font-family:IBM Plex Mono,monospace;font-size:11px">—</span>';
+
+    const sessionHtml = m.session === 'Night'
+      ? `<span class="session-pill night">🌙 Night</span>`
+      : m.session === 'Day'
+      ? `<span class="session-pill day">☀️ Day</span>`
+      : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
+
+    const resHtml   = m.win
+      ? `<span class="result-pill w">W</span>`
+      : `<span class="result-pill l">L</span>`;
+
+    // Global row number across all filtered results
+    const rowNum = start + i + 1;
+
+    return `<tr style="animation-delay:${i*16}ms">
+      <td class="td-date" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:center">${rowNum}</td>
+      <td class="td-date" style="font-size:11px">${m.id}</td>
+      <td class="td-date" style="font-size:11px">${m.tournamentId}</td>
+      <td class="td-date">${fmtDate(m.date, m.timezone)}</td>
+      <td><div class="t-name">${m.tournament}</div><div class="t-year">${m.year}</div></td>
+      <td>${levelDisplay}</td>
+      <td><span class="surface-pip"><span class="surface-dot" style="background:${sc}"></span><span class="surface-txt" style="color:${sc}">${ssh}</span></span></td>
+      <td>${roundHtml}</td>
+      <td class="td-players">${playersHtml}</td>
+      <td class="td-score">${scoreHtml}</td>
+      <td class="td-dur">${dur}</td>
+      <td>${sessionHtml}</td>
+      <td>${resHtml}</td>
+      <td>${statsHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPagination() {
+  const total = Math.ceil(filtered.length / perPage);
+  const pg = document.getElementById('pagination');
+  if (total <= 1) { pg.innerHTML = ''; return; }
+
+  const range = paginationRange(currentPage, total);
+  let html = `<button class="page-btn" id="pg-prev" ${currentPage===1?'disabled':''}>‹</button>`;
+  let prev = null;
+  for (const p of range) {
+    if (prev !== null && p - prev > 1) html += `<button class="page-btn ellipsis">…</button>`;
+    html += `<button class="page-btn${p===currentPage?' active':''}" data-p="${p}">${p}</button>`;
+    prev = p;
+  }
+  html += `<button class="page-btn" id="pg-next" ${currentPage===total?'disabled':''}>›</button>`;
+  pg.innerHTML = html;
+
+  pg.querySelectorAll('[data-p]').forEach(b =>
+    b.addEventListener('click', () => { currentPage = +b.dataset.p; render(); scrollTo(0,0); }));
+  pg.querySelector('#pg-prev')?.addEventListener('click', () => { currentPage--; render(); scrollTo(0,0); });
+  pg.querySelector('#pg-next')?.addEventListener('click', () => { currentPage++; render(); scrollTo(0,0); });
+}
+
+function paginationRange(cur, total) {
+  const s = new Set([1, total]);
+  for (let i = Math.max(2, cur-2); i <= Math.min(total-1, cur+2); i++) s.add(i);
+  return [...s].sort((a,b)=>a-b);
+}
+
+// ── Season select builder ─────────────────────────────────────────────────────
+function buildSeasonSelect() {
+  const years = [...new Set(allMatches.map(m => m.year))].sort((a,b) => b-a);
+  const sel = document.getElementById('fSeason');
+  years.forEach(y => {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    sel.appendChild(o);
+  });
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+document.getElementById('fResult').addEventListener('click', e => {
+  const b = e.target.closest('.filter-btn'); if (!b) return;
+  document.querySelectorAll('#fResult .filter-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); fResult = b.dataset.val; applyFilters();
+});
+document.getElementById('fSurface').addEventListener('click', e => {
+  const b = e.target.closest('.filter-btn'); if (!b) return;
+  document.querySelectorAll('#fSurface .filter-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); fSurface = b.dataset.val; applyFilters();
+});
+document.getElementById('fSeason').addEventListener('change', e => {
+  fSeason = e.target.value; applyFilters();
+});
+document.getElementById('fLevel').addEventListener('change', e => {
+  fLevel = e.target.value; applyFilters();
+});
+document.getElementById('fOpponent').addEventListener('input', e => {
+  fOpponent = e.target.value.trim(); applyFilters();
+});
+document.getElementById('fVenueGroup').addEventListener('click', e => {
+  const b = e.target.closest('.filter-btn'); if (!b) return;
+  document.querySelectorAll('#fVenueGroup .filter-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); fVenue = b.dataset.val; applyFilters();
+});
+document.getElementById('fSessionGroup').addEventListener('click', e => {
+  const b = e.target.closest('.filter-btn'); if (!b) return;
+  document.querySelectorAll('#fSessionGroup .filter-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); fSession = b.dataset.val; applyFilters();
+});
+document.getElementById('perPage').addEventListener('change', e => {
+  perPage = +e.target.value; currentPage = 1; render();
+});
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    sortDir = sortCol === col ? sortDir * -1 : (col === 'date' ? -1 : 1);
+    sortCol = col;
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc','sort-desc'));
+    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    applyFilters();
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    allMatches = await loadData();
+    filtered = [...allMatches];
+    buildSeasonSelect();
+    render();
+  } catch(e) {
+    document.getElementById('matchBody').innerHTML =
+      `<tr><td colspan="9" class="state-msg">Failed to load: ${e.message}</td></tr>`;
+  }
+})();
+</script>
+</body>
+</html>

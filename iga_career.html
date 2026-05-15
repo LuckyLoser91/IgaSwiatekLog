@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Iga Swiatek 职业生涯动量 | 赛季分区 & 大满贯首战 (夺冠标记)</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0b1020; color: white; font-family: Inter, system-ui, sans-serif; padding: 40px; }
+    .header { margin-bottom: 30px; }
+    .title { font-size: 44px; font-weight: 800; letter-spacing: -1px; background: linear-gradient(135deg, #fff, #facc15); background-clip: text; -webkit-background-clip: text; color: transparent; display: inline-block; }
+    .subtitle { margin-top: 12px; color: #94a3b8; font-size: 16px; line-height: 1.7; }
+    #chart { width: 100%; height: 780px; border-radius: 28px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005)); border: 1px solid rgba(255,255,255,0.08); overflow: hidden; }
+    .footer { margin-top: 20px; color: #64748b; font-size: 13px; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <div class="title">Iga Swiatek · 赛季动量轨迹</div>
+  <div class="subtitle">
+    滚动20场胜率曲线 | 赛季年份背景色块 | 🏆 大满贯首战 (标签内置) <br>
+    ⭐ 金色 = 最终夺冠大满贯 (6次) | 🔴 失利标记 — <strong>悬停或点击显示赛事、对手、轮次、场地</strong>
+  </div>
+</div>
+<div id="chart"></div>
+<div class="footer">📅 赛季年份垂直虚线 | 失利点信息完整呈现</div>
+
+<script>
+  (function() {
+    const GRAND_SLAM_SET = new Set(['Australian Open', 'Roland Garros', 'French Open', 'Wimbledon', 'US Open']);
+    const CHAMPIONSHIP_SET = new Set(['Roland Garros_2020', 'Roland Garros_2022', 'US Open_2022', 'Roland Garros_2023', 'Roland Garros_2024', 'Wimbledon_2025']);
+
+    function normalizeTournamentName(rawName) {
+      if (!rawName) return rawName;
+      if (rawName === 'French Open') return 'Roland Garros';
+      return rawName;
+    }
+
+    function getFirstMatchPerGrandSlam(rollingMatches) {
+      const map = new Map();
+      for (const match of rollingMatches) {
+        const rawTournament = match.tournament;
+        if (!rawTournament) continue;
+        const normTournament = normalizeTournamentName(rawTournament);
+        if (!GRAND_SLAM_SET.has(normTournament)) continue;
+        const matchDate = match.date;
+        const year = matchDate.getFullYear();
+        const key = `${normTournament}_${year}`;
+        if (!map.has(key)) map.set(key, { earliestDate: matchDate, matchData: match });
+        else if (matchDate < map.get(key).earliestDate) map.set(key, { earliestDate: matchDate, matchData: match });
+      }
+      const result = [];
+      for (const [key, entry] of map.entries()) {
+        const match = entry.matchData;
+        const firstMatchDate = entry.earliestDate;
+        const winRateAtMatch = match.rollingWinRate;
+        const year = firstMatchDate.getFullYear();
+        const normTournament = normalizeTournamentName(match.tournament);
+        const isChampion = CHAMPIONSHIP_SET.has(`${normTournament}_${year}`);
+        result.push({
+          value: [firstMatchDate, winRateAtMatch],
+          tournament: match.tournament,
+          normalizedTournament: normTournament,
+          round: match.round,
+          opponent: match.opponent,
+          surface: match.surface,
+          opponentRanking: match.opponentRanking,
+          score: match.score,
+          date: firstMatchDate,
+          isChampion,
+          year,
+        });
+      }
+      result.sort((a, b) => a.value[0] - b.value[0]);
+      return result;
+    }
+
+    function generateSeasonYearMarkLines(lineData) {
+      if (!lineData.length) return [];
+      const dates = lineData.map(item => item[0]);
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
+      const startYear = minDate.getFullYear();
+      const endYear = maxDate.getFullYear();
+      const yearLines = [];
+      for (let y = startYear; y <= endYear + 1; y++) {
+        const lineTimestamp = new Date(y, 0, 1).getTime();
+        if (lineTimestamp < minDate.getTime() - 15 * 24 * 3600 * 1000) continue;
+        if (lineTimestamp > maxDate.getTime() + 60 * 24 * 3600 * 1000) continue;
+        yearLines.push({
+          xAxis: lineTimestamp,
+          label: { show: true, formatter: `${y}`, position: 'start', offset: [0, -18], color: '#cbd5e6', fontSize: 11, fontWeight: '500', backgroundColor: 'rgba(15,25,45,0.8)', padding: [2,8,2,8], borderRadius: 14 },
+          lineStyle: { color: 'rgba(148,163,184,0.6)', width: 1.5, type: 'dashed' },
+          symbol: 'none',
+        });
+      }
+      return yearLines;
+    }
+
+    function generateSeasonMarkAreas(lineData) {
+      if (!lineData.length) return [];
+      const dates = lineData.map(item => item[0]);
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
+      const startYear = minDate.getFullYear();
+      const endYear = maxDate.getFullYear();
+      const areas = [];
+      for (let y = startYear; y <= endYear; y++) {
+        const yearStart = new Date(y, 0, 1).getTime();
+        const yearEnd = new Date(y + 1, 0, 1).getTime();
+        const startBound = Math.max(yearStart, minDate.getTime() - 7 * 24 * 3600 * 1000);
+        const endBound = Math.min(yearEnd, maxDate.getTime() + 60 * 24 * 3600 * 1000);
+        if (endBound <= startBound) continue;
+        const isEven = (y % 2 === 0);
+        const bgColor = isEven ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.07)';
+        areas.push([{ name: `${y}赛季`, xAxis: startBound, itemStyle: { color: bgColor, borderWidth: 0, opacity: 0.5 }, label: { show: false } }, { xAxis: endBound }]);
+      }
+      return areas;
+    }
+
+    async function loadData() {
+      try {
+        const response = await fetch('./data/iga_swiatek_previous_matches/combined_matches_wta_only.json');
+        const data = await response.json();
+        const igaMatches = data.filter(match => match.homeTeam?.name === 'Iga Swiatek' || match.awayTeam?.name === 'Iga Swiatek');
+        const parsed = igaMatches.map(match => {
+          const isHome = match.homeTeam?.name === 'Iga Swiatek';
+          const won = (isHome && match.winnerCode === 1) || (!isHome && match.winnerCode === 2);
+          const opponent = isHome ? match.awayTeam?.name : match.homeTeam?.name;
+          const opponentRanking = isHome ? match.awayTeam?.ranking : match.homeTeam?.ranking;
+          return {
+            date: new Date(match.startTimestamp * 1000),
+            won, opponent, opponentRanking,
+            surface: match.groundType || 'Unknown',
+            tournament: match.tournament?.uniqueTournament?.name || '',
+            round: match.roundInfo?.name || '',
+            score: `${match.homeScore?.display ?? ''}-${match.awayScore?.display ?? ''}`
+          };
+        });
+        parsed.sort((a, b) => a.date - b.date);
+        const WINDOW_SIZE = 20;
+        const rolling = parsed.map((match, idx) => {
+          const start = Math.max(0, idx - WINDOW_SIZE + 1);
+          const slice = parsed.slice(start, idx + 1);
+          const wins = slice.filter(m => m.won).length;
+          const rate = (wins / slice.length) * 100;
+          return { ...match, rollingWinRate: +(rate.toFixed(1)) };
+        });
+        const lineData = rolling.map(m => [m.date, m.rollingWinRate]);
+        const lossData = rolling.filter(m => !m.won).map(m => ({
+          value: [m.date, m.rollingWinRate],
+          opponent: m.opponent,
+          tournament: m.tournament,
+          round: m.round,
+          surface: m.surface,
+          ranking: m.opponentRanking,
+          score: m.score,
+        }));
+        const firstMatchSlams = getFirstMatchPerGrandSlam(rolling);
+        const seasonMarkLines = generateSeasonYearMarkLines(lineData);
+        const seasonBackgroundAreas = generateSeasonMarkAreas(lineData);
+        renderChart(lineData, lossData, firstMatchSlams, seasonMarkLines, seasonBackgroundAreas);
+      } catch (err) {
+        console.error(err);
+        document.getElementById('chart').innerHTML = `<div style="color:#f87171; padding:40px; text-align:center;">⚠️ 数据加载失败，请确认路径正确</div>`;
+      }
+    }
+
+    function renderChart(lineData, lossData, slamFirstMatchData, seasonMarkLines, seasonBackgroundAreas) {
+      const chartDom = document.getElementById('chart');
+      const chart = echarts.init(chartDom);
+
+      let minDate = new Date(Math.min(...lineData.map(p => p[0])));
+      let maxDate = new Date(Math.max(...lineData.map(p => p[0])));
+      const extendedMin = new Date(minDate.getFullYear(), minDate.getMonth() - 2, 1);
+      const extendedMax = new Date(2026, 11, 31);
+      const finalMax = maxDate > extendedMax ? new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 1) : extendedMax;
+
+      const horizontalLines = [
+        { yAxis: 85, label: { show: false }, lineStyle: { color: '#facc15', width: 2, type: 'dashed', opacity: 0.8 } },
+        { yAxis: 65, label: { show: false }, lineStyle: { color: '#ef4444', width: 2, type: 'dashed', opacity: 0.8 } }
+      ];
+      const allMarkLines = [...horizontalLines, ...seasonMarkLines];
+
+      const enhancedSlamData = slamFirstMatchData.map(item => {
+        const labelText = (() => {
+          const t = item.normalizedTournament;
+          if (t === 'Australian Open') return 'AO';
+          if (t === 'Roland Garros') return 'RG';
+          if (t === 'Wimbledon') return 'W';
+          if (t === 'US Open') return 'US';
+          return 'GS';
+        })();
+        const isChamp = item.isChampion === true;
+        return {
+          value: item.value,
+          tournament: item.tournament,
+          normalizedTournament: item.normalizedTournament,
+          round: item.round,
+          opponent: item.opponent,
+          surface: item.surface,
+          opponentRanking: item.opponentRanking,
+          score: item.score,
+          date: item.date,
+          isChampion: isChamp,
+          itemStyle: isChamp ? { color: '#FFD966', borderColor: '#ffffff', borderWidth: 2.5, shadowBlur: 22, shadowColor: '#FFBF00' } 
+                            : { color: '#3b82f6', borderColor: '#ffffff', borderWidth: 2.5, shadowBlur: 20, shadowColor: '#3b82f6cc' },
+          label: { show: true, formatter: labelText, position: 'inside', color: '#111827', fontWeight: 'bold', fontSize: 11, backgroundColor: 'rgba(255,255,255,0.95)', padding: [2,5,2,5], borderRadius: 14, borderWidth: 0, offset: [0,0] }
+        };
+      });
+
+      const option = {
+        backgroundColor: 'transparent',
+        animationDuration: 1600,
+        // 全局 tooltip 基础配置，但各系列可覆盖
+        tooltip: {
+          trigger: 'axis',   // 折线图默认用 axis 方便查看趋势
+          axisPointer: { type: 'shadow', label: { backgroundColor: '#facc15' } },
+          backgroundColor: '#0f172ae6',
+          borderColor: 'rgba(250,204,21,0.5)',
+          borderWidth: 1,
+          textStyle: { color: '#f8fafc', fontSize: 12 },
+          formatter: function(params) {
+            // 仅当是 axis 模式且 params 是数组时，返回折线信息
+            if (params && params.length && params[0].seriesName === '职业生涯动量 (滚动胜率)') {
+              const point = params[0];
+              if (point && point.value) {
+                const date = new Date(point.value[0]);
+                const winRate = point.value[1];
+                return `<div style="font-weight:700; margin-bottom:6px;">📅 ${date.toLocaleDateString()}</div>
+                        <div>🎯 滚动20场胜率: <b style="color:#facc15;">${winRate}%</b></div>`;
+              }
+            }
+            return '';
+          }
+        },
+        grid: { left: 85, right: 45, top: 65, bottom: 60, containLabel: false },
+        xAxis: { type: 'time', min: extendedMin, max: finalMax, axisLine: { lineStyle: { color: '#475569' } }, axisLabel: { color: '#cbd5e6', fontSize: 11 }, splitLine: { show: false }, axisTick: { show: false } },
+        yAxis: { type: 'value', min: 40, max: 100, axisLine: { show: false }, axisLabel: { color: '#cbd5e6', formatter: '{value}%' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }, name: '滚动胜率 (%)', nameTextStyle: { color: '#94a3b8' } },
+        series: [
+          { 
+            name: '职业生涯动量 (滚动胜率)', 
+            type: 'line', smooth: true, symbol: 'none', 
+            lineStyle: { width: 3.5, color: '#facc15', shadowBlur: 18 }, 
+            areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1, [{offset:0,color:'rgba(250,204,21,0.28)'},{offset:1,color:'rgba(250,204,21,0.01)'}]) }, 
+            data: lineData, 
+            markArea: { silent: true, data: seasonBackgroundAreas, label: { show: false }, itemStyle: { borderWidth: 0 } }, 
+            markLine: { silent: false, symbol: 'none', data: allMarkLines, label: { show: false }, lineStyle: { type: 'dashed' } },
+            tooltip: { show: true, trigger: 'axis' } // 继承全局
+          },
+          { 
+            name: '大满贯首战时刻', 
+            type: 'scatter', 
+            data: enhancedSlamData, 
+            symbolSize: 24, z: 20, 
+            label: { show: true, position: 'inside', formatter: (p) => p.data.label?.formatter || '', color: '#111827', fontWeight: 'bold', fontSize: 11, backgroundColor: 'rgba(255,255,255,0.95)', padding: [2,5,2,5], borderRadius: 14 },
+            // 单独设置 tooltip 确保显示完整信息
+            tooltip: {
+              show: true,
+              trigger: 'item',
+              formatter: function(params) {
+                const data = params.data;
+                if (!data) return '';
+                const date = new Date(data.value[0]);
+                const winRate = data.value[1];
+                const champBadge = data.isChampion ? '⭐ 最终夺冠大满贯 ⭐' : '大满贯首战';
+                const color = data.isChampion ? '#FFBF00' : '#3b82f6';
+                return `
+                  <div style="font-weight:800; color:${color}; margin-bottom:8px;">🏆 ${champBadge}</div>
+                  <div><b>📅 日期:</b> ${date.toLocaleDateString()}</div>
+                  <div><b>🏟️ 赛事:</b> ${data.tournament || '—'}</div>
+                  <div><b>🔄 轮次:</b> ${data.round || '第一轮'}</div>
+                  <div><b>🧑‍🤝‍🧑 对手:</b> ${data.opponent || '未知'}</div>
+                  <div><b>📈 当时滚动胜率:</b> <span style="color:#facc15;">${winRate}%</span></div>
+                  <div><b>🎯 场地:</b> ${data.surface || '—'}</div>
+                  ${data.isChampion ? '<div><b>🏅 该届赛事最终夺冠</b></div>' : ''}
+                `;
+              }
+            }
+          },
+          { 
+            name: '失利场次', 
+            type: 'scatter', 
+            data: lossData, 
+            symbolSize: 9, z: 15, 
+            itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: 1.2 },
+            // 关键：单独指定 tooltip，确保显示赛事、对手、轮次、排名
+            tooltip: {
+              show: true,
+              trigger: 'item',
+              formatter: function(params) {
+                const data = params.data;
+                if (!data) return '';
+                const date = new Date(data.value[0]);
+                const winRate = data.value[1];
+                return `
+                  <div style="font-weight:800; color:#ef4444; margin-bottom:8px;">❌ 失利</div>
+                  <div><b>📅 日期:</b> ${date.toLocaleDateString()}</div>
+                  <div><b>🧑‍🤝‍🧑 对手:</b> ${data.opponent || '—'}</div>
+                  <div><b>🏟️ 赛事:</b> ${data.tournament || '—'}</div>
+                  <div><b>🔄 轮次:</b> ${data.round || '—'}</div>
+                  <div><b>🎯 场地:</b> ${data.surface || '—'}</div>
+                  <div><b>📈 当时滚动胜率:</b> <span style="color:#facc15;">${winRate}%</span></div>
+                `;
+              }
+            }
+          }
+        ],
+        graphic: []
+      };
+
+      chart.setOption(option);
+
+      function addCustomBenchmarkLabels() {
+        const coord2020 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [new Date(2020, 6, 1).getTime(), 86.5]);
+        const coord2024 = chart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [new Date(2024, 6, 1).getTime(), 63.5]);
+        if (!coord2020 || !coord2024) return;
+        chart.setOption({
+          graphic: [
+            { id: 'dominance_label', type: 'text', left: coord2020[0] - 45, top: coord2020[1] - 28, style: { text: '⚡ 统治力阈值 Dominance 85%', fill: '#facc15', fontSize: 11, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.7)', padding: [4,12,4,12], borderRadius: 20, borderColor: '#facc1566', borderWidth: 1 }, z: 100 },
+            { id: 'slump_label', type: 'text', left: coord2024[0] - 35, top: coord2024[1] + 15, style: { text: '📉 低谷阈值 Slump 65%', fill: '#ef4444', fontSize: 11, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.7)', padding: [4,12,4,12], borderRadius: 20, borderColor: '#ef444466', borderWidth: 1 }, z: 100 }
+          ]
+        }, { replaceMerge: false });
+      }
+      setTimeout(addCustomBenchmarkLabels, 200);
+      window.addEventListener('resize', () => { chart.resize(); setTimeout(addCustomBenchmarkLabels, 100); });
+    }
+
+    loadData();
+  })();
+</script>
+</body>
+</html>
