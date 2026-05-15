@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iga Swiatek · 数据主页</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0b1020;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 2rem;
+            padding: 2.5rem;
+            border: 1px solid rgba(250, 204, 21, 0.2);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.5);
+        }
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #facc15);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .sub {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: inline-block;
+            padding-bottom: 0.5rem;
+        }
+        .links {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            margin: 1.5rem 0;
+        }
+        .btn {
+            display: block;
+            background: rgba(250, 204, 21, 0.1);
+            border: 1px solid rgba(250, 204, 21, 0.3);
+            padding: 1rem 1.5rem;
+            border-radius: 2rem;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.25s ease;
+            text-align: center;
+        }
+        .btn-primary {
+            background: rgba(250, 204, 21, 0.15);
+            color: #facc15;
+        }
+        .btn-primary:hover {
+            background: rgba(250, 204, 21, 0.3);
+            border-color: #facc15;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+        }
+        .btn-secondary:hover {
+            background: rgba(59, 130, 246, 0.25);
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        .footer-note {
+            margin-top: 1.8rem;
+            font-size: 0.75rem;
+            color: #475569;
+        }
+        @media (max-width: 500px) {
+            .card { padding: 1.8rem; }
+            h1 { font-size: 1.8rem; }
+            .btn { padding: 0.8rem 1rem; font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Iga Świątek</h1>
+        <div class="sub">比赛记录 · 职业生涯全景</div>
+        
+        <div class="links">
+            
+            <a href="./swiatek_matches.html" class="btn btn-secondary" target="_blank">
+                🎾 完整比赛记录
+                <span style="display: block; font-size: 0.75rem; font-weight: normal; opacity: 0.7; margin-top: 4px;">所有WTA对阵 · 胜负详情 · 对手种子</span>
+            </a>
+            <a href="./iga_career.html" class="btn btn-primary" target="_blank">
+                📈 职业生涯动量图
+                <span style="display: block; font-size: 0.75rem; font-weight: normal; opacity: 0.7; margin-top: 4px;">滚动胜率 · 大满贯首战 · 赛季分区</span>
+            </a>
+        </div>
+        
+        <div class="footer-note">
+            点击链接将在新标签页中打开
+        </div>
+    </div>
+</body>
+</html>
