@@ -337,6 +337,18 @@
   .session-pill.day   { background: #fef9ec; color: #a07020; border: 1px solid #e8d99a; }
   .session-pill.night { background: #eeeaf8; color: #5040a0; border: 1px solid #c8b8e8; }
 
+  .status-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .status-pill.ended    { background: #eaf4ee; color: var(--win);  border: 1px solid #b8ddc4; }
+  .status-pill.retired  { background: #fff4e6; color: #b06020; border: 1px solid #f0d090; }
+  .status-pill.walkover { background: #f4eef8; color: #6040a0; border: 1px solid #d0b8e8; }
+
   .stats-link {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -467,6 +479,19 @@
       <option value="others">Others</option>
     </select>
     <div class="sep"></div>
+    <span class="filter-label">Round</span>
+    <select class="filter-select" id="fRound">
+      <option value="all">All Rounds</option>
+    </select>
+    <div class="sep"></div>
+    <span class="filter-label">Sets</span>
+    <select class="filter-select" id="fThreeSets">
+      <option value="all">All</option>
+      <option value="3">3 Sets</option>
+      <option value="2">2 Sets</option>
+      <option value="1">< 2 Sets</option>
+    </select>
+    <div class="sep"></div>
     <span class="filter-label">Per page</span>
     <select class="filter-select" id="perPage">
       <option value="15">15</option>
@@ -485,17 +510,17 @@
       <tr>
         <th data-col="idx" style="cursor:default">#</th>
         <th data-col="id">Event ID</th>
-        <th data-col="tournamentId">Tour. ID</th>
         <th data-col="endTime">End Time</th>
         <th data-col="tournament">Tournament</th>
+        <th data-col="tournamentId">Tour. ID</th>
         <th data-col="level">Level</th>
         <th data-col="surface">Surface</th>
         <th data-col="round">Round</th>
-        <th data-col="players">Players</th>
-        <th data-col="score">Score</th>
+        <th data-col="players">Match</th>
+        <th data-col="status">Status</th>
+        <th data-col="result">Result</th>
         <th data-col="duration">Time</th>
         <th data-col="session">Session</th>
-        <th data-col="result">Result</th>
         <th style="cursor:default">Stats</th>
       </tr>
     </thead>
@@ -513,6 +538,29 @@ const TZ_PATH   = './data/tournament_timezones.json';
 const SWIATEK_ID = 228272;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Round helpers ─────────────────────────────────────────────────────────────
+const ROUND_ORDER = ['F','SF','QF','R16','R32','R64','R128','3rd'];
+
+function roundAbbr(r) {
+  if (!r) return null;
+  const s = r.trim();
+  if (/^final$/i.test(s) && !/semi|quarter/i.test(s)) return 'F';
+  if (/semi.?final/i.test(s)) return 'SF';
+  if (/quarter.?final/i.test(s)) return 'QF';
+  if (/3rd|bronze|third.?place|match for (3rd|third)/i.test(s)) return '3rd';
+  if (/round of 16/i.test(s) || /r16/i.test(s)) return 'R16';
+  if (/round of 32/i.test(s) || /r32/i.test(s)) return 'R32';
+  if (/round of 64/i.test(s) || /r64/i.test(s)) return 'R64';
+  if (/round of 128/i.test(s) || /r128/i.test(s)) return 'R128';
+  return s; // keep original if no match
+}
+
+function roundSortKey(abbr) {
+  if (!abbr) return 999;
+  const idx = ROUND_ORDER.indexOf(abbr);
+  return idx === -1 ? 99 : idx;
+}
+
 function surfaceKey(g) {
   if (!g) return 'other';
   const s = g.toLowerCase();
@@ -645,6 +693,7 @@ async function loadData() {
         points:       pts,
         level,
         round:        ev.roundInfo?.name || null,
+        roundAbbr:    roundAbbr(ev.roundInfo?.name || null),
         swiatekName:  swiatek?.name  || 'Iga Świątek',
         swiatekSeed:  isHomeSwiatek ? ev.homeTeamSeed : ev.awayTeamSeed,
         opponentName: opponent?.name || '—',
@@ -660,6 +709,7 @@ async function loadData() {
         slug:     ev.slug || '',
         customId: ev.customId || '',
         win,
+        status: ev.status?.description || '—',
       };
     })
     .sort((a, b) => b.date - a.date);
@@ -673,11 +723,29 @@ let fResult  = 'all';
 let fSurface = 'all';
 let fSeason  = 'all';
 let fLevel   = 'all';
+let fRound   = 'all';
+let fThreeSets = 'all';
 let fSession  = 'all';
 let fOpponent = '';
 let fVenue    = 'all';
 let sortCol  = null;
 let sortDir  = 1;
+
+const STATUS_ORDER = ['Ended', 'Retired', 'Walkover'];
+function statusSortKey(s) {
+  const idx = STATUS_ORDER.indexOf(s);
+  return idx === -1 ? STATUS_ORDER.length : idx;
+}
+
+function countSets(m) {
+  if (!m.homeScore || !m.awayScore) return 0;
+  let cnt = 0;
+  for (const p of ['period1','period2','period3','period4','period5']) {
+    if (m.homeScore[p] != null && m.awayScore[p] != null) cnt++;
+    else break;
+  }
+  return cnt;
+}
 
 function applyFilters() {
   filtered = allMatches.filter(m => {
@@ -686,14 +754,35 @@ function applyFilters() {
     if (fSurface !== 'all'  && surfaceKey(m.surface) !== fSurface) return false;
     if (fSeason  !== 'all'  && m.year !== fSeason) return false;
     if (fLevel   !== 'all'  && m.level !== fLevel) return false;
+    if (fRound   !== 'all'  && m.roundAbbr !== fRound) return false;
     if (fSession  !== 'all'  && m.session !== fSession) return false;
     if (fOpponent && !m.opponentName.toLowerCase().includes(fOpponent.toLowerCase())) return false;
     if (fVenue !== 'all' && m.venue !== fVenue) return false;
+    if (fThreeSets === '3' && countSets(m) !== 3) return false;
+    if (fThreeSets === '2' && countSets(m) !== 2) return false;
+    if (fThreeSets === '1' && countSets(m) >= 2) return false;
     return true;
   });
 
   if (sortCol) {
     filtered.sort((a, b) => {
+      if (sortCol === 'status') {
+        const va = statusSortKey(a.status), vb = statusSortKey(b.status);
+        return (va - vb) * sortDir;
+      }
+      if (sortCol === 'round') {
+        const va = roundSortKey(a.roundAbbr), vb = roundSortKey(b.roundAbbr);
+        return (va - vb) * sortDir;
+      }
+      if (sortCol === 'duration') {
+        const dur = m => {
+          if (!m.time) return 0;
+          let t = 0;
+          ['period1','period2','period3','period4','period5'].forEach(k => { if (m.time[k]) t += m.time[k]; });
+          return t;
+        };
+        return (dur(a) - dur(b)) * sortDir;
+      }
       let va = a[sortCol], vb = b[sortCol];
       if (va == null) va = typeof vb === 'number' ? -Infinity : '';
       if (vb == null) vb = typeof va === 'number' ? -Infinity : '';
@@ -745,20 +834,26 @@ function renderTable() {
       ? `<span class="pts none">Others</span>`
       : `<span class="pts">${m.level}</span>`;
 
-    const roundHtml = m.round
-      ? `<span class="round-tag">${m.round}</span>`
+    const roundHtml = m.roundAbbr
+      ? `<span class="round-tag">${m.roundAbbr}</span>`
       : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
 
     // Swiatek always row 1, opponent row 2 (no rank)
     const sSeed = m.swiatekSeed  ? `<span class="seed-tag">${m.swiatekSeed}</span>`  : '';
     const oSeed = m.opponentSeed ? `<span class="seed-tag">${m.opponentSeed}</span>` : '';
 
-    const playersHtml = `
-      <div class="player-row">${sSeed}<span class="p-name ${m.win?'win-p':'lose-p'}">${m.swiatekName}</span></div>
-      <div class="vs-sep">vs</div>
-      <div class="player-row">${oSeed}<span class="p-name ${!m.win?'win-p':'lose-p'}">${m.opponentName}</span></div>`;
-
     const scoreHtml = fmtScore(m.homeScore, m.awayScore, m.winnerCode, m.isHomeSwiatek);
+
+    // Merged match cell: players left, score right
+    const matchHtml = `
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div class="player-row">${sSeed}<span class="p-name ${m.win?'win-p':'lose-p'}">${m.swiatekName}</span></div>
+          <div class="vs-sep">vs</div>
+          <div class="player-row">${oSeed}<span class="p-name ${!m.win?'win-p':'lose-p'}">${m.opponentName}</span></div>
+        </div>
+        <div class="td-score" style="text-align:right;flex-shrink:0">${scoreHtml}</div>
+      </div>`;
     const dur       = fmtDuration(m.time);
     const sofaUrl = (m.slug && m.customId)
       ? 'https://www.sofascore.com/tennis/match/' + m.slug + '/' + m.customId + '#id:' + m.id + ',tab:statistics'
@@ -777,23 +872,31 @@ function renderTable() {
       ? `<span class="result-pill w">W</span>`
       : `<span class="result-pill l">L</span>`;
 
+    const statusHtml = m.status === 'Ended'
+      ? `<span class="status-pill ended">Ended</span>`
+      : m.status === 'Retired'
+      ? `<span class="status-pill retired">Retired</span>`
+      : m.status === 'Walkover'
+      ? `<span class="status-pill walkover">Walkover</span>`
+      : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
+
     // Global row number across all filtered results
     const rowNum = start + i + 1;
 
     return `<tr style="animation-delay:${i*16}ms">
       <td class="td-date" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:center">${rowNum}</td>
       <td class="td-date" style="font-size:11px">${m.id}</td>
-      <td class="td-date" style="font-size:11px">${m.tournamentId}</td>
       <td class="td-date">${fmtDate(m.date, m.timezone)}</td>
       <td><div class="t-name">${m.tournament}</div><div class="t-year">${m.year}</div></td>
+      <td class="td-date" style="font-size:11px">${m.tournamentId}</td>
       <td>${levelDisplay}</td>
       <td><span class="surface-pip"><span class="surface-dot" style="background:${sc}"></span><span class="surface-txt" style="color:${sc}">${ssh}</span></span></td>
       <td>${roundHtml}</td>
-      <td class="td-players">${playersHtml}</td>
-      <td class="td-score">${scoreHtml}</td>
+      <td class="td-players">${matchHtml}</td>
+      <td>${statusHtml}</td>
+      <td>${resHtml}</td>
       <td class="td-dur">${dur}</td>
       <td>${sessionHtml}</td>
-      <td>${resHtml}</td>
       <td>${statsHtml}</td>
     </tr>`;
   }).join('');
@@ -838,6 +941,26 @@ function buildSeasonSelect() {
   });
 }
 
+function buildRoundSelect() {
+  const known = new Set(ROUND_ORDER);
+  const present = new Set(allMatches.map(m => m.roundAbbr).filter(Boolean));
+  const sel = document.getElementById('fRound');
+  // First add in canonical order
+  ROUND_ORDER.forEach(r => {
+    if (present.has(r)) {
+      const o = document.createElement('option');
+      o.value = r; o.textContent = r;
+      sel.appendChild(o);
+    }
+  });
+  // Then add any others not in canonical list
+  [...present].filter(r => !known.has(r)).sort().forEach(r => {
+    const o = document.createElement('option');
+    o.value = r; o.textContent = r;
+    sel.appendChild(o);
+  });
+}
+
 // ── Event listeners ───────────────────────────────────────────────────────────
 document.getElementById('fResult').addEventListener('click', e => {
   const b = e.target.closest('.filter-btn'); if (!b) return;
@@ -854,6 +977,12 @@ document.getElementById('fSeason').addEventListener('change', e => {
 });
 document.getElementById('fLevel').addEventListener('change', e => {
   fLevel = e.target.value; applyFilters();
+});
+document.getElementById('fRound').addEventListener('change', e => {
+  fRound = e.target.value; applyFilters();
+});
+document.getElementById('fThreeSets').addEventListener('change', e => {
+  fThreeSets = e.target.value; applyFilters();
 });
 document.getElementById('fOpponent').addEventListener('input', e => {
   fOpponent = e.target.value.trim(); applyFilters();
@@ -874,7 +1003,12 @@ document.getElementById('perPage').addEventListener('change', e => {
 document.querySelectorAll('th[data-col]').forEach(th => {
   th.addEventListener('click', () => {
     const col = th.dataset.col;
-    sortDir = sortCol === col ? sortDir * -1 : (col === 'date' ? -1 : 1);
+    // First click direction: round=asc(F first=0), date=desc, duration=desc, others=asc
+    if (sortCol === col) {
+      sortDir = sortDir * -1;
+    } else {
+      sortDir = (col === 'date' || col === 'duration' || col === 'status') ? -1 : 1;
+    }
     sortCol = col;
     document.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc','sort-desc'));
     th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
@@ -888,6 +1022,7 @@ document.querySelectorAll('th[data-col]').forEach(th => {
     allMatches = await loadData();
     filtered = [...allMatches];
     buildSeasonSelect();
+    buildRoundSelect();
     render();
   } catch(e) {
     document.getElementById('matchBody').innerHTML =
