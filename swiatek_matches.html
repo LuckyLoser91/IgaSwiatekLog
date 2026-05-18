@@ -653,7 +653,8 @@ async function loadData() {
     .filter(ev => ev.homeTeam && ev.awayTeam)
     .map(ev => {
       const isHomeSwiatek = ev.homeTeam?.id === SWIATEK_ID;
-      const win      = isHomeSwiatek ? ev.winnerCode === 1 : ev.winnerCode === 2;
+      const isWalkover = (ev.status?.description || '').toLowerCase() === 'walkover';
+      const win      = isWalkover ? null : (isHomeSwiatek ? ev.winnerCode === 1 : ev.winnerCode === 2);
       const swiatek  = isHomeSwiatek ? ev.homeTeam : ev.awayTeam;
       const opponent = isHomeSwiatek ? ev.awayTeam : ev.homeTeam;
 
@@ -757,8 +758,8 @@ function countSets(m) {
 
 function applyFilters() {
   filtered = allMatches.filter(m => {
-    if (fResult  === 'win'  && !m.win) return false;
-    if (fResult  === 'loss' &&  m.win) return false;
+    if (fResult  === 'win'  && (m.win === null || !m.win)) return false;
+    if (fResult  === 'loss' && (m.win === null ||  m.win)) return false;
     if (fSurface !== 'all'  && surfaceKey(m.surface) !== fSurface) return false;
     if (fSeason  !== 'all'  && m.year !== fSeason) return false;
     if (fLevel   !== 'all'  && m.level !== fLevel) return false;
@@ -811,13 +812,15 @@ function render() {
 }
 
 function updateStats() {
-  const total = filtered.length;
-  const wins  = filtered.filter(m => m.win).length;
-  const losses = total - wins;
+  const total   = filtered.length;
+  const counted = filtered.filter(m => m.win !== null);
+  const wins    = counted.filter(m => m.win).length;
+  const losses  = counted.length - wins;
+  const countedTotal = counted.length;
   document.getElementById('statTotal').textContent   = total;
   document.getElementById('statWins').textContent    = wins;
   document.getElementById('statLoss').textContent    = losses;
-  document.getElementById('statWinRate').textContent = total ? (wins/total*100).toFixed(1)+'%' : '—';
+  document.getElementById('statWinRate').textContent = countedTotal ? (wins/countedTotal*100).toFixed(1)+'%' : '—';
   const allTotal = allMatches.length;
   document.getElementById('countLabel').textContent  =
     total === allTotal ? `${total} matches` : `${total} / ${allTotal} matches`;
@@ -878,7 +881,9 @@ function renderTable() {
       ? `<span class="session-pill day">☀️ Day</span>`
       : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
 
-    const resHtml   = m.win
+    const resHtml   = m.win === null
+      ? `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`
+      : m.win
       ? `<span class="result-pill w">W</span>`
       : `<span class="result-pill l">L</span>`;
 
