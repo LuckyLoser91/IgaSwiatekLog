@@ -338,8 +338,9 @@
     border-radius: 2px;
     white-space: nowrap;
   }
-  .session-pill.day   { background: #fef9ec; color: #a07020; border: 1px solid #e8d99a; }
-  .session-pill.night { background: #eeeaf8; color: #5040a0; border: 1px solid #c8b8e8; }
+  .session-pill.day    { background: #fef9ec; color: #a07020; border: 1px solid #e8d99a; }
+  .session-pill.night1 { background: #eeeaf8; color: #5040a0; border: 1px solid #c8b8e8; }
+  .session-pill.night2 { background: #e8e0f4; color: #2a1a6e; border: 1px solid #9878d8; }
 
   .status-pill {
     display: inline-block;
@@ -461,7 +462,8 @@
     <div class="filter-group" id="fSessionGroup">
       <button class="filter-btn active" data-val="all">All</button>
       <button class="filter-btn" data-val="Day">Day</button>
-      <button class="filter-btn" data-val="Night">Night</button>
+      <button class="filter-btn" data-val="Night 1">Night 1</button>
+      <button class="filter-btn" data-val="Night 2">Night 2</button>
     </div>
     <div class="sep"></div>
     <span class="filter-label">Opponent</span>
@@ -684,7 +686,9 @@ async function loadData() {
         const localHour = parseInt(
           new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: 'numeric', hour12: false }).format(new Date(endTs * 1000))
         , 10);
-        session = (localHour >= 19 || localHour < 6) ? 'Night' : 'Day';
+        if (localHour >= 21 || localHour < 6) session = 'Night 2';
+        else if (localHour >= 19) session = 'Night 1';
+        else session = 'Day';
       }
 
       return {
@@ -866,8 +870,10 @@ function renderTable() {
       ? '<a href="' + sofaUrl + '" target="_blank" rel="noopener" class="stats-link">&#8599; Stats</a>'
       : '<span style="color:var(--muted);font-family:IBM Plex Mono,monospace;font-size:11px">—</span>';
 
-    const sessionHtml = m.session === 'Night'
-      ? `<span class="session-pill night">🌙 Night</span>`
+    const sessionHtml = m.session === 'Night 2'
+      ? `<span class="session-pill night2">🌃 Night 2</span>`
+      : m.session === 'Night 1'
+      ? `<span class="session-pill night1">🌙 Night 1</span>`
       : m.session === 'Day'
       ? `<span class="session-pill day">☀️ Day</span>`
       : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
