@@ -338,9 +338,8 @@
     border-radius: 2px;
     white-space: nowrap;
   }
-  .session-pill.day    { background: #fef9ec; color: #a07020; border: 1px solid #e8d99a; }
-  .session-pill.night1 { background: #eeeaf8; color: #5040a0; border: 1px solid #c8b8e8; }
-  .session-pill.night2 { background: #e8e0f4; color: #2a1a6e; border: 1px solid #9878d8; }
+  .session-pill.day   { background: #fef9ec; color: #a07020; border: 1px solid #e8d99a; }
+  .session-pill.night { background: #eeeaf8; color: #5040a0; border: 1px solid #c8b8e8; }
 
   .status-pill {
     display: inline-block;
@@ -435,7 +434,15 @@
 </header>
 
 <div class="toolbar">
+  <!-- Row 1: Always visible quick filters -->
   <div class="toolbar-row">
+    <span class="filter-label">Type</span>
+    <div class="filter-group" id="fMatchType">
+      <button class="filter-btn" data-val="all">All</button>
+      <button class="filter-btn active" data-val="official">Main</button>
+      <button class="filter-btn" data-val="others">Others</button>
+    </div>
+    <div class="sep"></div>
     <span class="filter-label">Result</span>
     <div class="filter-group" id="fResult">
       <button class="filter-btn active" data-val="all">All</button>
@@ -454,22 +461,24 @@
     <span class="filter-label">Venue</span>
     <div class="filter-group" id="fVenueGroup">
       <button class="filter-btn active" data-val="all">All</button>
-      <button class="filter-btn" data-val="Outdoor">Outdoor</button>
-      <button class="filter-btn" data-val="Indoor">Indoor</button>
+      <button class="filter-btn" data-val="Outdoor">Out</button>
+      <button class="filter-btn" data-val="Indoor">In</button>
     </div>
     <div class="sep"></div>
     <span class="filter-label">Session</span>
     <div class="filter-group" id="fSessionGroup">
       <button class="filter-btn active" data-val="all">All</button>
       <button class="filter-btn" data-val="Day">Day</button>
-      <button class="filter-btn" data-val="Night 1">Night 1</button>
-      <button class="filter-btn" data-val="Night 2">Night 2</button>
+      <button class="filter-btn" data-val="Night">Night</button>
     </div>
-    <div class="sep"></div>
-    <span class="filter-label">Opponent</span>
-    <input class="filter-input" id="fOpponent" type="text" placeholder="e.g. Sabalenka" autocomplete="off">
+    <div class="sep" style="margin-left:auto"></div>
+    <button class="filter-btn" id="toggleFilters" style="margin-left:auto;display:flex;align-items:center;gap:5px">
+      <span>Filters</span><span id="toggleIcon" style="font-size:10px;transition:transform 0.2s">▼</span>
+    </button>
+    <span class="toolbar-right" id="countLabel" style="margin-left:12px"></span>
   </div>
-  <div class="toolbar-row">
+  <!-- Row 2: Collapsible detailed selects -->
+  <div class="toolbar-row" id="extraFilters" style="display:none">
     <span class="filter-label">Season</span>
     <select class="filter-select" id="fSeason">
       <option value="all">All Seasons</option>
@@ -479,6 +488,7 @@
     <select class="filter-select" id="fLevel">
       <option value="all">All Levels</option>
       <option value="Grand Slam">Grand Slam</option>
+      <option value="WTA Finals">WTA Finals</option>
       <option value="WTA 1000">WTA 1000</option>
       <option value="WTA 500">WTA 500</option>
       <option value="WTA 250">WTA 250</option>
@@ -497,16 +507,14 @@
       <option value="2">2 Sets</option>
       <option value="1">< 2 Sets</option>
     </select>
+  </div>
+  <!-- Row 3: Collapsible search inputs -->
+  <div class="toolbar-row" id="searchFilters" style="display:none">
+    <span class="filter-label">Opponent</span>
+    <input class="filter-input" id="fOpponent" type="text" placeholder="e.g. Sabalenka" autocomplete="off">
     <div class="sep"></div>
-    <span class="filter-label">Per page</span>
-    <select class="filter-select" id="perPage">
-      <option value="15">15</option>
-      <option value="30" selected>30</option>
-      <option value="50">50</option>
-      <option value="100">100</option>
-    </select>
-    <div class="sep"></div>
-    <span class="toolbar-right" id="countLabel"></span>
+    <span class="filter-label">Tournament</span>
+    <input class="filter-input" id="fTournament" type="text" placeholder="e.g. Roland Garros" autocomplete="off">
   </div>
 </div>
 
@@ -518,7 +526,6 @@
         <th data-col="id">Event ID</th>
         <th data-col="endTime">End Time</th>
         <th data-col="tournament">Tournament</th>
-        <th data-col="tournamentId">Tour. ID</th>
         <th data-col="level">Level</th>
         <th data-col="surface">Surface</th>
         <th data-col="round">Round</th>
@@ -531,15 +538,14 @@
       </tr>
     </thead>
     <tbody id="matchBody">
-      <tr><td colspan="15" class="state-msg loading-dots">Loading matches</td></tr>
+      <tr><td colspan="13" class="state-msg loading-dots">Loading matches</td></tr>
     </tbody>
   </table>
 </div>
 
-<div class="pagination" id="pagination"></div>
 
 <script>
-const DATA_PATH = './data/iga_swiatek_previous_matches/combined_matches_wta_only.json';
+const DATA_PATH = './data/iga_swiatek_previous_matches/combined_matches.json';
 const TZ_PATH   = './data/tournament_timezones.json';
 const SWIATEK_ID = 228272;
 
@@ -664,10 +670,13 @@ async function loadData() {
       const pts          = ut.tennisPoints ?? null;
 
       // Level label
+      const tName = ut.name || ev.tournament?.name || '';
       let level;
-      if (pts == null)        { level = 'others'; }
-      else if (pts === 2000)  { level = 'Grand Slam'; }
-      else                    { level = `WTA ${pts}`; }
+      if (/wta finals?/i.test(tName))        { level = 'WTA Finals'; }
+      else if (/united cup/i.test(tName))    { level = 'WTA 500'; }
+      else if (pts == null)                  { level = 'others'; }
+      else if (pts === 2000)                 { level = 'Grand Slam'; }
+      else                                   { level = `WTA ${pts}`; }
 
       // Timezone lookup (WTA Finals special-cased by year)
       let timezone = 'UTC';
@@ -687,10 +696,15 @@ async function loadData() {
         const localHour = parseInt(
           new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: 'numeric', hour12: false }).format(new Date(endTs * 1000))
         , 10);
-        if (localHour >= 21 || localHour < 6) session = 'Night 2';
-        else if (localHour >= 19) session = 'Night 1';
+        if (localHour >= 19 || localHour < 6) session = 'Night';
         else session = 'Day';
       }
+
+      const categoryName = ev.tournament?.category?.name || "";
+      const tournamentName = ev.tournament?.name || '';
+      const isOfficial = (categoryName === "WTA" || categoryName === "United Cup")
+        && !/qualif/i.test(ev.roundInfo?.name || '')
+        && !/doubles/i.test(tournamentName);
 
       return {
         id:           ev.id,
@@ -698,6 +712,8 @@ async function loadData() {
         year,
         tournament:   ut.name || ev.tournament?.name || '—',
         tournamentId,
+        categoryName,
+        isOfficial,
         surface:      ev.groundType || ut.groundType || '',
         points:       pts,
         level,
@@ -736,7 +752,9 @@ let fRound   = 'all';
 let fThreeSets = 'all';
 let fSession  = 'all';
 let fOpponent = '';
+let fTournament = '';
 let fVenue    = 'all';
+let fMatchType = 'official';
 let sortCol  = null;
 let sortDir  = 1;
 
@@ -758,6 +776,8 @@ function countSets(m) {
 
 function applyFilters() {
   filtered = allMatches.filter(m => {
+    if (fMatchType === 'official' && !m.isOfficial) return false;
+    if (fMatchType === 'others'   &&  m.isOfficial) return false;
     if (fResult  === 'win'  && (m.win === null || !m.win)) return false;
     if (fResult  === 'loss' && (m.win === null ||  m.win)) return false;
     if (fSurface !== 'all'  && surfaceKey(m.surface) !== fSurface) return false;
@@ -766,6 +786,7 @@ function applyFilters() {
     if (fRound   !== 'all'  && m.roundAbbr !== fRound) return false;
     if (fSession  !== 'all'  && m.session !== fSession) return false;
     if (fOpponent && !m.opponentName.toLowerCase().includes(fOpponent.toLowerCase())) return false;
+    if (fTournament && !m.tournament.toLowerCase().includes(fTournament.toLowerCase())) return false;
     if (fVenue !== 'all' && m.venue !== fVenue) return false;
     if (fThreeSets === '3' && countSets(m) !== 3) return false;
     if (fThreeSets === '2' && countSets(m) !== 2) return false;
@@ -782,6 +803,9 @@ function applyFilters() {
       if (sortCol === 'round') {
         const va = roundSortKey(a.roundAbbr), vb = roundSortKey(b.roundAbbr);
         return (va - vb) * sortDir;
+      }
+      if (sortCol === 'endTime') {
+        return (a.date - b.date) * sortDir;
       }
       if (sortCol === 'duration') {
         const dur = m => {
@@ -827,12 +851,11 @@ function updateStats() {
 }
 
 function renderTable() {
-  const start = (currentPage - 1) * perPage;
-  const slice = filtered.slice(start, start + perPage);
+  const slice = filtered;
   const tbody = document.getElementById('matchBody');
 
   if (!slice.length) {
-    tbody.innerHTML = `<tr><td colspan="15" class="state-msg">No matches found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" class="state-msg">No matches found</td></tr>`;
     return;
   }
 
@@ -873,10 +896,8 @@ function renderTable() {
       ? '<a href="' + sofaUrl + '" target="_blank" rel="noopener" class="stats-link">&#8599; Stats</a>'
       : '<span style="color:var(--muted);font-family:IBM Plex Mono,monospace;font-size:11px">—</span>';
 
-    const sessionHtml = m.session === 'Night 2'
-      ? `<span class="session-pill night2">🌃 Night 2</span>`
-      : m.session === 'Night 1'
-      ? `<span class="session-pill night1">🌙 Night 1</span>`
+    const sessionHtml = m.session === 'Night'
+      ? `<span class="session-pill night">🌙 Night</span>`
       : m.session === 'Day'
       ? `<span class="session-pill day">☀️ Day</span>`
       : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
@@ -896,14 +917,13 @@ function renderTable() {
       : `<span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px">—</span>`;
 
     // Global row number across all filtered results
-    const rowNum = start + i + 1;
+    const rowNum = i + 1;
 
     return `<tr style="animation-delay:${i*16}ms">
       <td class="td-date" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:center">${rowNum}</td>
       <td class="td-date" style="font-size:11px">${m.id}</td>
       <td class="td-date">${fmtDate(m.date, m.timezone)}</td>
       <td><div class="t-name">${m.tournament}</div><div class="t-year">${m.year}</div></td>
-      <td class="td-date" style="font-size:11px">${m.tournamentId}</td>
       <td>${levelDisplay}</td>
       <td><span class="surface-pip"><span class="surface-dot" style="background:${sc}"></span><span class="surface-txt" style="color:${sc}">${ssh}</span></span></td>
       <td>${roundHtml}</td>
@@ -917,33 +937,7 @@ function renderTable() {
   }).join('');
 }
 
-function renderPagination() {
-  const total = Math.ceil(filtered.length / perPage);
-  const pg = document.getElementById('pagination');
-  if (total <= 1) { pg.innerHTML = ''; return; }
-
-  const range = paginationRange(currentPage, total);
-  let html = `<button class="page-btn" id="pg-prev" ${currentPage===1?'disabled':''}>‹</button>`;
-  let prev = null;
-  for (const p of range) {
-    if (prev !== null && p - prev > 1) html += `<button class="page-btn ellipsis">…</button>`;
-    html += `<button class="page-btn${p===currentPage?' active':''}" data-p="${p}">${p}</button>`;
-    prev = p;
-  }
-  html += `<button class="page-btn" id="pg-next" ${currentPage===total?'disabled':''}>›</button>`;
-  pg.innerHTML = html;
-
-  pg.querySelectorAll('[data-p]').forEach(b =>
-    b.addEventListener('click', () => { currentPage = +b.dataset.p; render(); scrollTo(0,0); }));
-  pg.querySelector('#pg-prev')?.addEventListener('click', () => { currentPage--; render(); scrollTo(0,0); });
-  pg.querySelector('#pg-next')?.addEventListener('click', () => { currentPage++; render(); scrollTo(0,0); });
-}
-
-function paginationRange(cur, total) {
-  const s = new Set([1, total]);
-  for (let i = Math.max(2, cur-2); i <= Math.min(total-1, cur+2); i++) s.add(i);
-  return [...s].sort((a,b)=>a-b);
-}
+function renderPagination() { /* pagination removed */ }
 
 // ── Season select builder ─────────────────────────────────────────────────────
 function buildSeasonSelect() {
@@ -982,6 +976,11 @@ document.getElementById('fResult').addEventListener('click', e => {
   document.querySelectorAll('#fResult .filter-btn').forEach(x => x.classList.remove('active'));
   b.classList.add('active'); fResult = b.dataset.val; applyFilters();
 });
+document.getElementById('fMatchType').addEventListener('click', e => {
+  const b = e.target.closest('.filter-btn'); if (!b) return;
+  document.querySelectorAll('#fMatchType .filter-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); fMatchType = b.dataset.val; applyFilters();
+});
 document.getElementById('fSurface').addEventListener('click', e => {
   const b = e.target.closest('.filter-btn'); if (!b) return;
   document.querySelectorAll('#fSurface .filter-btn').forEach(x => x.classList.remove('active'));
@@ -1002,6 +1001,9 @@ document.getElementById('fThreeSets').addEventListener('change', e => {
 document.getElementById('fOpponent').addEventListener('input', e => {
   fOpponent = e.target.value.trim(); applyFilters();
 });
+document.getElementById('fTournament').addEventListener('input', e => {
+  fTournament = e.target.value.trim(); applyFilters();
+});
 document.getElementById('fVenueGroup').addEventListener('click', e => {
   const b = e.target.closest('.filter-btn'); if (!b) return;
   document.querySelectorAll('#fVenueGroup .filter-btn').forEach(x => x.classList.remove('active'));
@@ -1012,9 +1014,7 @@ document.getElementById('fSessionGroup').addEventListener('click', e => {
   document.querySelectorAll('#fSessionGroup .filter-btn').forEach(x => x.classList.remove('active'));
   b.classList.add('active'); fSession = b.dataset.val; applyFilters();
 });
-document.getElementById('perPage').addEventListener('change', e => {
-  perPage = +e.target.value; currentPage = 1; render();
-});
+
 document.querySelectorAll('th[data-col]').forEach(th => {
   th.addEventListener('click', () => {
     const col = th.dataset.col;
@@ -1022,7 +1022,7 @@ document.querySelectorAll('th[data-col]').forEach(th => {
     if (sortCol === col) {
       sortDir = sortDir * -1;
     } else {
-      sortDir = (col === 'date' || col === 'duration' || col === 'status') ? -1 : 1;
+      sortDir = (col === 'date' || col === 'duration' || col === 'status') ? -1 : col === 'endTime' ? 1 : 1;
     }
     sortCol = col;
     document.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc','sort-desc'));
@@ -1035,15 +1035,27 @@ document.querySelectorAll('th[data-col]').forEach(th => {
 (async () => {
   try {
     allMatches = await loadData();
-    filtered = [...allMatches];
     buildSeasonSelect();
     buildRoundSelect();
-    render();
+    sortCol = 'endTime'; sortDir = -1;
+    document.querySelector('th[data-col="endTime"]')?.classList.add('sort-desc');
+    applyFilters(); // applies default fMatchType='official' on first load
   } catch(e) {
     document.getElementById('matchBody').innerHTML =
-      `<tr><td colspan="9" class="state-msg">Failed to load: ${e.message}</td></tr>`;
+      `<tr><td colspan="13" class="state-msg">Failed to load: ${e.message}</td></tr>`;
   }
 })();
+
+// ── Collapsible filters toggle ────────────────────────────────────────────────
+document.getElementById('toggleFilters').addEventListener('click', () => {
+  const extra  = document.getElementById('extraFilters');
+  const search = document.getElementById('searchFilters');
+  const icon   = document.getElementById('toggleIcon');
+  const open   = extra.style.display !== 'none';
+  extra.style.display  = open ? 'none' : 'flex';
+  search.style.display = open ? 'none' : 'flex';
+  icon.style.transform = open ? '' : 'rotate(180deg)';
+});
 </script>
 </body>
 </html>
